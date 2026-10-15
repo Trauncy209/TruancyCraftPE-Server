@@ -11,7 +11,7 @@ v0.5.25 adds server-owned **rain, snow and thunderstorms**, lightning and weathe
 v0.5.25.2 fixes native terrain changing as you explore. Clients wait for the server's terrain before entering new chunks, and keep the **0.5.25.1** join fixes. Update the client and server together.
 
 
-**Testing:** [v0.5.25.3 prerelease](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/tag/v0.5.25.3) speeds up native terrain streaming with lossless chunk compression and lighter saved-chunk lighting work. Use the matching client and server.
+**Testing:** [v0.5.25.4 prerelease](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/tag/v0.5.25.4) adds native player inventory, position and hotbar saves, while retaining the faster terrain streaming. Use the matching client and server.
 
 ## Come play TCSMP
 
@@ -35,7 +35,7 @@ cmake --build build -j1
 
 Default port is **25565** for both UDP gameplay and TCP server-list status. Open both protocols. Put a **64×64 PNG** named `server-icon.png` in the working directory for your listing. `--name` supplies the advertised description/MOTD; players can save a separate server label in their list.
 
-Worlds save in `world/` by default. Existing worlds keep their saved seed and game mode: `--survival` selects Survival for a **new** world. Use `--directory`, `--world`, `--port`, `--max-players` and `--autosave` to configure it. Run `--help` for all options. Console commands: `save`, `list`, `stop`, `help`, `/op username`, `/deop username`. Use `--console /path/to/console.in` for an owner-only FIFO console with a background service. SIGTERM saves cleanly.
+Worlds save in `world/` by default. Matching 0.5.25.4 clients and servers also save each player’s inventory, hotbar and position across reconnects and restarts. Existing worlds keep their saved seed and game mode: `--survival` selects Survival for a **new** world. Use `--directory`, `--world`, `--port`, `--max-players` and `--autosave` to configure it. Run `--help` for all options. Console commands: `save`, `list`, `stop`, `help`, `/op username`, `/deop username`. Use `--console /path/to/console.in` for an owner-only FIFO console with a background service. SIGTERM saves cleanly.
 
 ## Server-owned settings
 

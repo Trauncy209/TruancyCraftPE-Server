@@ -62,23 +62,19 @@ void ClientSideNetworkHandler::recenterChunkRequests()
 
 void ClientSideNetworkHandler::requestNextChunk()
 {
-	while (requestNextChunkIndex < NumRequestChunks && chunksLoaded[requestNextChunkIndex])
+	// Keep a small nearest-first window in flight instead of one round trip per
+	// chunk. Retain outstanding coordinates across recentering to avoid duplicates.
+	while (requestNextChunkIndex < NumRequestChunks &&
+	       pendingChunkRequests.size() < (size_t)chunkRequestWindow)
 	{
-		requestNextChunkIndex++;
-        requestNextChunkPosition++;
-	}
-
-	if (requestNextChunkIndex < NumRequestChunks)
-	{
-        IntPair& chunk = requestNextChunkIndexList[requestNextChunkIndex];
+		const int index = requestNextChunkIndex++;
+		++requestNextChunkPosition;
+		const IntPair& chunk = requestNextChunkIndexList[index];
+		const auto key = std::make_pair(chunk.x, chunk.y);
+		if (chunksLoaded[index] || pendingChunkRequests.count(key)) continue;
+		pendingChunkRequests.insert(key);
 		RequestChunkPacket packet(chunk.x, chunk.y);
-        raknetInstance->send(packet);
-
-        //LOGI("requesting chunks @ (%d, %d)\n", chunk.x, chunk.y);
-        
-		//raknetInstance->send(new RequestChunkPacket(requestNextChunkPosition % CHUNK_CACHE_WIDTH, requestNextChunkPosition / CHUNK_CACHE_WIDTH));
-		requestNextChunkIndex++;
-        requestNextChunkPosition++;
+		raknetInstance->send(packet);
 	}
 	if (areAllChunksLoaded()) finishChunkRequests();
 }
@@ -614,17 +610,19 @@ void ClientSideNetworkHandler::handle(const RakNet::RakNetGUID& source, ChunkDat
 	chunk->unsaved = false;
 
 	receivedChunks[std::make_pair(packet->x, packet->z)] = chunk;
-	bool newlyReceived = false;
+    // Expand only after this server has delivered a verified compressed full
+    // snapshot. Legacy servers retain the smaller raw-payload window.
+    if (packet->fullSnapshot) chunkRequestWindow = MaxPendingChunkRequests;
+	pendingChunkRequests.erase(std::make_pair(packet->x, packet->z));
 	for (int i = 0; i < NumRequestChunks; ++i) {
 		if (requestNextChunkIndexList[i].x == packet->x && requestNextChunkIndexList[i].y == packet->z) {
-			newlyReceived = !chunksLoaded[i];
 			chunksLoaded[i] = true;
 			break;
 		}
 	}
 
 	if (areAllChunksLoaded()) finishChunkRequests();
-	else if (newlyReceived) requestNextChunk();
+	else requestNextChunk();
 }
 
 void ClientSideNetworkHandler::finishChunkRequests()
@@ -935,6 +933,10 @@ void ClientSideNetworkHandler::handle(const RakNet::RakNetGUID& source, Containe
         for (unsigned int i = 0; i < packet->items.size(); ++i) {
             minecraft->player->inventory->setItem(Inventory::MAX_SELECTION_SIZE + i, &packet->items[i]);
         }
+        if (packet->hotbar.present) packet->hotbar.apply(minecraft->player->inventory);
+        else for (unsigned int i=0;i<packet->items.size();++i)
+            if (!packet->items[i].isNull()) minecraft->player->inventory->linkEmptySlot(Inventory::MAX_SELECTION_SIZE+i);
+        minecraft->player->nativeInventoryRestored();
     } else if (minecraft->player->containerMenu && minecraft->player->containerMenu->containerId == packet->containerId) {
         for (unsigned int i = 0; i < packet->items.size(); ++i) {
             minecraft->player->containerMenu->setSlot(i, &packet->items[i]);
@@ -1001,6 +1003,8 @@ void ClientSideNetworkHandler::clearChunksLoaded()
 	requestNextChunkIndex = 0;
 	requestNextChunkPosition = 0;
 	receivedChunks.clear();
+	pendingChunkRequests.clear();
+    chunkRequestWindow = 4;
 	requestedChunksReadySent = false;
 
 	// Init the chunk positions
