@@ -12,7 +12,7 @@ v0.5.25 adds server-owned **rain, snow and thunderstorms**, lightning and weathe
 
 **Address:** `45.41.206.239` · **Port:** `25566` · **Type:** `TCPE`
 
-**Native TruancyCraftPE survival** — Survival, 16 slots, autosaves every minute. Hosted on our homelab through Chicago, with automatic startup after reboots.
+**Native TruancyCraftPE survival** — Survival, infinite Extreme Terrain with custom world generation, 16 slots, autosaves every minute. Hosted on our homelab through Chicago, with automatic startup after reboots.
 
 Use the matching [TruancyCraftPE v0.5.25 client](https://github.com/Trauncy209/TruancyCraftPE/releases/tag/v0.5.25). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
 
