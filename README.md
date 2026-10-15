@@ -2,9 +2,11 @@
 
 Native survival multiplayer for **[TruancyCraftPE](https://github.com/Trauncy209/TruancyCraftPE)**. Keeping the soul of old Pocket Edition, with a proper server you can leave running.
 
-**v0.5.24.1 · Native servers alpha** · [Download the server](https://github.com/Trauncy209/TruancyCraftPE/releases/download/v0.5.24.1/TruancyCraftPE-Server-0.5.24.1-Linux-x86_64.tar.gz)
+**v0.5.25 · Weather update** · [Download the server](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/download/v0.5.25/TruancyCraftPE-Server-0.5.25-Linux-x86_64.tar.gz)
 
-This is our first headless native server alpha. It runs TCPE worlds directly, without a game window, graphics card, Java server or Java protocol translation. The server is C++ with the original native TCPE/RakNet protocol. It is not a Rust rewrite.
+This is our headless native server alpha. It runs TCPE worlds directly, without a game window, graphics card, Java server or Java protocol translation. The server is C++ with the original native TCPE/RakNet protocol. It is not a Rust rewrite.
+
+v0.5.25 adds server-owned **rain, snow and thunderstorms**, lightning and weather effects on the world. Weather saves with the world and syncs with matching clients when they join or reconnect. Same native survival, with proper weather.
 
 ## Come play TCSMP
 
@@ -12,7 +14,7 @@ This is our first headless native server alpha. It runs TCPE worlds directly, wi
 
 **Native TruancyCraftPE survival** — Survival, 16 slots, autosaves every minute. Hosted on our homelab through Chicago, with automatic startup after reboots.
 
-Use the matching [TruancyCraftPE v0.5.24.1 client](https://github.com/Trauncy209/TruancyCraftPE/releases/tag/v0.5.24.1). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
+Use the matching [TruancyCraftPE v0.5.25 client](https://github.com/Trauncy209/TruancyCraftPE/releases/tag/v0.5.25). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
 
 ![TCSMP](branding/TCSMP-logo.png)
 
@@ -32,7 +34,7 @@ Worlds save in `world/` by default. Existing worlds keep their saved seed and ga
 
 ## Server-owned settings
 
-TCSMP uses a Survival world. Players are sent the server's game mode when joining. World administration is default-deny. Only the local server console can run `/op username` or `/deop username`; chat can never grant operators. Grants are saved in `operators.txt`. Operators can use `/time set day|night|NUMBER` and `/gamerule keepInventory|doDaylightCycle true|false`. Creative, weather and give commands remain disabled, including for operators, until their server-owned implementations exist. Incoming client StartGame, SetTime and AdventureSettings packets have no server mutation handlers. Normal world time continues naturally.
+TCSMP uses a Survival world. Players are sent the server's game mode when joining. World administration is default-deny. Only the local server console can run `/op username` or `/deop username`; chat can never grant operators. Grants are saved in `operators.txt`. Operators can use `/time set day|night|NUMBER`, `/gamerule keepInventory|doDaylightCycle true|false` and `/weather clear|rain|thunder [seconds]`. Weather duration is 1–50000 seconds; leaving it out uses 300 seconds. Creative and give commands remain disabled, including for operators. Incoming client StartGame, SetTime and AdventureSettings packets have no server mutation handlers. Normal world time continues naturally.
 
 The matching client source also blocks the local game-mode toggle on remote worlds and hides game-mode, keep-inventory and tick-speed controls there. Those changes require a newly built client; they cannot retrofit installed APKs.
 
@@ -42,7 +44,7 @@ This is an alpha built on a legacy, partly client-trusting protocol. Inventory/e
 
 ## What we checked
 
-Native login, world spawn, chunk download, multiple clients, movement/chat, block replication, autosave, graceful shutdown/restart and saved-world reload. TCSMP's public Chicago address passed TCP status/icon, UDP discovery, login and chunk download. Extended mobile survival sessions remain to be tested.
+Native login, world spawn, chunk download, multiple clients, movement/chat, block replication, autosave, graceful shutdown/restart and saved-world reload. TCSMP's public Chicago address passed TCP status/icon, UDP discovery, login and chunk download. Weather checks cover state/save reload, two-client synchronization, reconnects and operator command permissions. The matching arm64 client also received user weather testing on a phone; longer sessions and wider device testing are still ongoing.
 
 [Dedicated server details](docs/native-dedicated-server.md) · [Client project](https://github.com/Trauncy209/TruancyCraftPE) · [Discord](https://discord.gg/zeuspvp)
 

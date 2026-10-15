@@ -315,7 +315,7 @@ private:
 		if (delta[primidx] == 0) return -1;
 		unsigned char secidx1 = axisConversionArray[primidx];
 		unsigned char secidx2 = axisConversionArray[primidx + 3];
-		int primsign; 
+		int primsign;
 		if (delta[primidx] > 0) primsign = 1;
 		else primsign = -1;
 		float secfac1 = ((float) delta[secidx1]) / ((float) delta[primidx]);
