@@ -1,0 +1,4 @@
+Native TCPE source and its retained copyright statements are included in source/.
+Project: https://github.com/Trauncy209/TruancyCraftPE
+RakNet copyright and license statements are retained in source/src/raknet.
+The server links the host operating system's zlib, C++ runtime and platform libraries. No game assets, graphics libraries or Rust Java networking library are bundled in this server.

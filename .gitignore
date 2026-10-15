@@ -1,0 +1,9 @@
+/build/
+/world/
+/world.lock
+/tcsmp/
+/tcsmp.lock
+*.log
+operators.txt
+operators.txt.new
+console.in
