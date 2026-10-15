@@ -10,6 +10,9 @@ v0.5.25 adds server-owned **rain, snow and thunderstorms**, lightning and weathe
 
 v0.5.25.2 fixes native terrain changing as you explore. Clients wait for the server's terrain before entering new chunks, and keep the **0.5.25.1** join fixes. Update the client and server together.
 
+
+**Testing:** [v0.5.25.3 prerelease](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/tag/v0.5.25.3) speeds up native terrain streaming with lossless chunk compression and lighter saved-chunk lighting work. Use the matching client and server.
+
 ## Come play TCSMP
 
 **Address:** `45.41.206.239` · **Port:** `25566` · **Type:** `TCPE`
