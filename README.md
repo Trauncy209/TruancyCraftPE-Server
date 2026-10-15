@@ -2,7 +2,7 @@
 
 Native survival multiplayer for **[TruancyCraftPE](https://github.com/Trauncy209/TruancyCraftPE)**. Keeping the soul of old Pocket Edition, with a proper server you can leave running.
 
-**v0.5.25.2 · Terrain streaming fix** · [Download the server](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/download/v0.5.25.2/TruancyCraftPE-Server-0.5.25.2-Linux-x86_64.tar.gz)
+**v0.5.25.4 · Native Player Saves** · [Download the server](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/download/v0.5.25.4/TruancyCraftPE-Server-0.5.25.4-Linux-x86_64.tar.gz)
 
 This is our headless native server alpha. It runs TCPE worlds directly, without a game window, graphics card, Java server or Java protocol translation. The server is C++ with the original native TCPE/RakNet protocol. It is not a Rust rewrite.
 
@@ -11,7 +11,7 @@ v0.5.25 adds server-owned **rain, snow and thunderstorms**, lightning and weathe
 v0.5.25.2 fixes native terrain changing as you explore. Clients wait for the server's terrain before entering new chunks, and keep the **0.5.25.1** join fixes. Update the client and server together.
 
 
-**Testing:** [v0.5.25.4 prerelease](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/tag/v0.5.25.4) adds native player inventory, position and hotbar saves, while retaining the faster terrain streaming. Use the matching client and server.
+**Current release:** [v0.5.25.4](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/tag/v0.5.25.4) adds native player inventory, position and hotbar saves, while retaining the faster terrain streaming. Use the matching client and server.
 
 ## Come play TCSMP
 
@@ -19,7 +19,7 @@ v0.5.25.2 fixes native terrain changing as you explore. Clients wait for the ser
 
 **Native TruancyCraftPE survival** — Survival, infinite Extreme Terrain with custom world generation, 16 slots, autosaves every minute. Hosted on our homelab through Chicago, with automatic startup after reboots.
 
-Use the matching [TruancyCraftPE v0.5.25.2 client](https://github.com/Trauncy209/TruancyCraftPE/releases/tag/v0.5.25.2). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
+Use the matching [TruancyCraftPE v0.5.25.4 client](https://github.com/Trauncy209/TruancyCraftPE/releases/tag/v0.5.25.4). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
 
 ![TCSMP](branding/TCSMP-logo.png)
 
