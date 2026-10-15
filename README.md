@@ -2,6 +2,8 @@
 
 Native survival multiplayer for **[TruancyCraftPE](https://github.com/Trauncy209/TruancyCraftPE)**. Keeping the soul of old Pocket Edition, with a proper server you can leave running.
 
+**v0.5.24 · Native servers alpha** · [Download the server](https://github.com/Trauncy209/TruancyCraftPE/releases/download/v0.5.24/TruancyCraftPE-Server-0.5.24-Linux-x86_64.tar.gz)
+
 This is our first headless native server alpha. It runs TCPE worlds directly, without a game window, graphics card, Java server or Java protocol translation. The server is C++ with the original native TCPE/RakNet protocol. It is not a Rust rewrite.
 
 ## Come play TCSMP
@@ -10,7 +12,7 @@ This is our first headless native server alpha. It runs TCPE worlds directly, wi
 
 **Native TruancyCraftPE survival** — Survival, 16 slots, autosaves every minute. Hosted on our homelab through Chicago, with automatic startup after reboots.
 
-You need a matching client with the native-server list changes. Existing public APKs may not include these changes yet; the client source is on [feature/native-tcpe-servers](https://github.com/Trauncy209/TruancyCraftPE/tree/feature/native-tcpe-servers). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
+Use the matching [TruancyCraftPE v0.5.24 client](https://github.com/Trauncy209/TruancyCraftPE/releases/tag/v0.5.24). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
 
 ![TCSMP](branding/TCSMP-logo.png)
 
