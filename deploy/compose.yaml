@@ -1,6 +1,6 @@
 services:
   tcpe:
-    image: local/truancycraftpe-server:0.5.25.5
+    image: local/truancycraftpe-server:0.5.25.6
     build:
       context: ..
       dockerfile: deploy/Dockerfile

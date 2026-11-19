@@ -2,18 +2,11 @@
 
 Native survival multiplayer for **[TruancyCraftPE](https://github.com/Trauncy209/TruancyCraftPE)**. Keeping the soul of old Pocket Edition, with a proper server you can leave running.
 
-**v0.5.25.4 · Native Player Saves** · [Download the server](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/download/v0.5.25.4/TruancyCraftPE-Server-0.5.25.4-Linux-x86_64.tar.gz)
+**v0.5.25.6 · Native Stability** · [Download the server](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/download/v0.5.25.6/TruancyCraftPE-Server-0.5.25.6-Linux-x86_64.tar.gz)
 
-**Test the next update:** [v0.5.25.5 · Stability Update (prerelease)](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/tag/v0.5.25.5) fixes distant players freezing, mob hits and pickups after travel, inventory synchronization, and world-save recovery. Update the client and server together. The stable download above stays on 0.5.25.4 until testing is finished.
+This headless server runs TCPE worlds directly, with native survival, saved inventories/positions/hotbars, compressed terrain streaming and rain, snow and thunderstorms. It keeps the distant-player, mob interaction, inventory synchronization and save-recovery fixes from 0.5.25.5. Update your client and server together.
 
-This is our headless native server alpha. It runs TCPE worlds directly, without a game window, graphics card, Java server or Java protocol translation. The server is C++ with the original native TCPE/RakNet protocol. It is not a Rust rewrite.
-
-v0.5.25 adds server-owned **rain, snow and thunderstorms**, lightning and weather effects on the world. Weather saves with the world and syncs with matching clients when they join or reconnect. Same native survival, with proper weather.
-
-v0.5.25.2 fixes native terrain changing as you explore. Clients wait for the server's terrain before entering new chunks, and keep the **0.5.25.1** join fixes. Update the client and server together.
-
-
-**Current release:** [v0.5.25.4](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/tag/v0.5.25.4) adds native player inventory, position and hotbar saves, while retaining the faster terrain streaming. Use the matching client and server.
+The client’s 0.5.25.6 update improves GLES3 rendering; this server build carries the matching version and shared source. The dedicated server is C++, uses the native TCPE/RakNet protocol, and runs without a graphics card or Java server. Native multiplayer remains alpha.
 
 ## Come play TCSMP
 
@@ -21,7 +14,7 @@ v0.5.25.2 fixes native terrain changing as you explore. Clients wait for the ser
 
 **Native TruancyCraftPE survival** — Survival, infinite Extreme Terrain with custom world generation, 16 slots, autosaves every minute. Hosted on our homelab through Chicago, with automatic startup after reboots.
 
-Use the matching [TruancyCraftPE v0.5.25.4 client](https://github.com/Trauncy209/TruancyCraftPE/releases/tag/v0.5.25.4). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
+Use the matching [TruancyCraftPE v0.5.25.6 client](https://github.com/Trauncy209/TruancyCraftPE/releases/tag/v0.5.25.6). Select **Add Server → Type: TCPE**. This address does not accept Java clients.
 
 ![TCSMP](branding/TCSMP-logo.png)
 
@@ -37,7 +30,7 @@ cmake --build build -j1
 
 Default port is **25565** for both UDP gameplay and TCP server-list status. Open both protocols. Put a **64×64 PNG** named `server-icon.png` in the working directory for your listing. `--name` supplies the advertised description/MOTD; players can save a separate server label in their list.
 
-Worlds save in `world/` by default. Matching 0.5.25.4 clients and servers also save each player’s inventory, hotbar and position across reconnects and restarts. Existing worlds keep their saved seed and game mode: `--survival` selects Survival for a **new** world. Use `--directory`, `--world`, `--port`, `--max-players` and `--autosave` to configure it. Run `--help` for all options. Console commands: `save`, `list`, `stop`, `help`, `/op username`, `/deop username`. Use `--console /path/to/console.in` for an owner-only FIFO console with a background service. SIGTERM saves cleanly.
+Worlds save in `world/` by default. Matching 0.5.25.6 clients and servers also save each player’s inventory, hotbar and position across reconnects and restarts. Existing worlds keep their saved seed and game mode: `--survival` selects Survival for a **new** world. Use `--directory`, `--world`, `--port`, `--max-players` and `--autosave` to configure it. Run `--help` for all options. Console commands: `save`, `list`, `stop`, `help`, `/op username`, `/deop username`. Use `--console /path/to/console.in` for an owner-only FIFO console with a background service. SIGTERM saves cleanly.
 
 Docker hosting is available too: [container setup](deploy/README.md), with saved worlds kept outside the container and automatic restart after reboots.
 
