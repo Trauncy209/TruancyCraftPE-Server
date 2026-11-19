@@ -3,11 +3,14 @@
 
 
 #include "NetEventCallback.h"
+#include "NativeJoinState.h"
 #include "../raknet/RakNetTypes.h"
 #include "../world/level/LevelConstants.h"
 
 #include <vector>
+#include <cstdint>
 #include <map>
+#include <set>
 #include <utility>
 
 class Minecraft;
@@ -32,7 +35,7 @@ typedef struct IntPair {
 class ClientSideNetworkHandler : public NetEventCallback
 {
 public:
-	ClientSideNetworkHandler(Minecraft* minecraft, IRakNetInstance* raknetInstance);
+	ClientSideNetworkHandler(Minecraft* minecraft, IRakNetInstance* raknetInstance, double (*joinClock)() = NULL);
 	virtual ~ClientSideNetworkHandler();
 
 	virtual void levelGenerated(Level* level);
@@ -82,6 +85,10 @@ public:
 	virtual void handle(const RakNet::RakNetGUID& source, ChatPacket* packet);
 	virtual void handle(const RakNet::RakNetGUID& source, AdventureSettingsPacket* packet);
 	virtual void handle(const RakNet::RakNetGUID& source, SignUpdatePacket* packet);
+	void beginJoin();
+	void cancelJoin();
+	bool hasJoinTimedOut() const;
+	void pruneChunkReceipts();
 	void recenterChunkRequests();
 	bool isChunkLoaded(int x, int z);
 private:
@@ -99,6 +106,9 @@ private:
 	RakNet::RakPeerInterface* rakPeer;
 
 	RakNet::RakNetGUID serverGuid;
+	NativeJoinState joinState;
+	bool authoritativeInventory = false;
+    double (*joinClock)();
 
 	BlockUpdateList	bufferedBlockUpdates;
 	int	requestNextChunkPosition;
@@ -108,7 +118,11 @@ private:
     int requestNextChunkIndex;
     IntPair requestNextChunkIndexList[NumRequestChunks];
 	bool chunksLoaded[NumRequestChunks];
-	std::map<std::pair<int, int>, LevelChunk*> receivedChunks;
+	std::map<std::pair<int, int>, uint64_t> receivedChunks;
+	// Bound memory/processing bursts while hiding per-chunk network latency.
+	static const int MaxPendingChunkRequests = 16;
+    int chunkRequestWindow = 4;
+	std::set<std::pair<int, int>> pendingChunkRequests;
 	bool requestedChunksReadySent = false;
 	void finishChunkRequests();
 };

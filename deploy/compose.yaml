@@ -1,0 +1,29 @@
+services:
+  tcpe:
+    image: local/truancycraftpe-server:0.5.25.5
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 2g
+    stop_grace_period: 60s
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=128m
+    ports:
+      - "25565:25565/tcp"
+      - "25565:25565/udp"
+    volumes:
+      - tcpe-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  tcpe-data:

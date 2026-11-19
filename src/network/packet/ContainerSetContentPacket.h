@@ -5,12 +5,14 @@
 
 #include "../Packet.h"
 #include "NativeHotbarState.h"
+#include "NativeInventoryTransaction.h"
 
 class ContainerSetContentPacket: public Packet
 {
 public:
     NativeHotbarState hotbar;
-    ContainerSetContentPacket() {
+    NativeInventorySnapshot nativeState;
+    ContainerSetContentPacket() : containerId(0) {
     }
 
     ContainerSetContentPacket(int containerId, const std::vector<ItemInstance>& newItems)
@@ -25,22 +27,34 @@ public:
         bitStream->Write((short)items.size());
         for (unsigned int i = 0; i < items.size(); ++i)
     		PacketUtil::writeItemInstance(items[i], bitStream);
-        if (containerId==0) hotbar.write(bitStream);
+        if (containerId==0) { hotbar.write(bitStream); nativeState.write(bitStream); }
     }
 
 	void read(RakNet::BitStream* bitStream) {
-        bitStream->Read(containerId);
-        short numItems;
-        bitStream->Read(numItems);
+        valid = false;
+        containerId = 0;
+        items.clear();
+        hotbar = NativeHotbarState();
+        nativeState = NativeInventorySnapshot();
+        short numItems = 0;
+        if (!bitStream->Read(containerId) || !bitStream->Read(numItems) ||
+            numItems < 0 || numItems > Inventory::CREATIVE_SLOT_COUNT + Inventory::MAX_SELECTION_SIZE ||
+            bitStream->GetNumberOfUnreadBits() < static_cast<unsigned int>(numItems) * 40) return;
+        items.reserve(numItems);
         for (int i = 0; i < numItems; ++i)
-            items.push_back( PacketUtil::readItemInstance(bitStream) );
-        if (containerId==0) hotbar.read(bitStream);
+            items.push_back(PacketUtil::readItemInstance(bitStream));
+        if (containerId == 0) {
+            hotbar.read(bitStream);
+            if (!nativeState.read(bitStream)) return;
+        }
+        valid = true;
     }
 
 	void handle(const RakNet::RakNetGUID& source, NetEventCallback* callback) {
 		callback->handle(source, (ContainerSetContentPacket*)this);
 	}
 
+    bool valid = true;
     unsigned char containerId;
     std::vector<ItemInstance> items;
 };

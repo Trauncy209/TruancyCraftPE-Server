@@ -1,7 +1,10 @@
 #include "NativeOperators.h"
 #include <sstream>
+#include <cmath>
+#include "../world/item/ArmorItem.h"
 
 #include "ServerSideNetworkHandler.h"
+#include "NativeInventoryTransactions.h"
 #include "../world/level/Level.h"
 #include "../world/level/storage/LevelStorage.h"
 #include "../world/entity/player/Player.h"
@@ -176,6 +179,17 @@ void ServerSideNetworkHandler::onNewClient(const RakNet::RakNetGUID& clientGuid)
 
 void ServerSideNetworkHandler::onDisconnect(const RakNet::RakNetGUID& guid)
 {
+    // A transport can disappear after Login but before READY_CLIENTGENERATION.
+    // Those players never entered the level and must not be saved as a fresh
+    // incomplete bootstrap over the existing player record. Release the name
+    // reservation too, so the next connection can log in immediately.
+    for (auto it = _pendingPlayers.begin(); it != _pendingPlayers.end();) {
+        Player* pending = *it;
+        if (pending->owner == guid) {
+            it = _pendingPlayers.erase(it);
+            delete pending;
+        } else ++it;
+    }
 	if (!level) return;
 	LOGI("onDisconnect\n");
 
@@ -365,14 +379,7 @@ void ServerSideNetworkHandler::onReady_ClientGeneration(const RakNet::RakNetGUID
 	*/
 
 	// Restore the server-owned inventory after client initialization has cleared it.
-    std::vector<ItemInstance> restoredItems;
-    for (int slot = Inventory::MAX_SELECTION_SIZE; slot < newPlayer->inventory->getContainerSize(); ++slot) {
-        ItemInstance* item = newPlayer->inventory->getItem(slot);
-        restoredItems.push_back(item ? *item : ItemInstance());
-    }
-    ContainerSetContentPacket restoredInventory(0, restoredItems);
-    restoredInventory.hotbar.capture(newPlayer->inventory);
-    raknetInstance->send(source, restoredInventory);
+    static_cast<ServerPlayer*>(newPlayer)->sendInventory();
     SetHealthPacket restoredHealth(newPlayer->health);
     raknetInstance->send(source, restoredHealth);
 
@@ -404,20 +411,25 @@ void ServerSideNetworkHandler::onReady_RequestedChunks(const RakNet::RakNetGUID&
 void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, MovePlayerPacket* packet)
 {
 	if (!level) return;
-
-	//LOGI("MovePlayerPacket\n");
-	if (Entity* entity = level->getEntity(packet->entityId))
-	{
-		entity->xd = entity->yd = entity->zd = 0;
-		entity->lerpTo(packet->x, packet->y, packet->z, packet->yRot, packet->xRot, 3);
-
-		// broadcast this packet to other clients
-		redistributePacket(packet, source);
-	}
+	Player* player = getPlayer(source);
+	if (!player || player->entityId != packet->entityId ||
+		!std::isfinite(packet->x) || !std::isfinite(packet->y) || !std::isfinite(packet->z) ||
+		!std::isfinite(packet->xRot) || !std::isfinite(packet->yRot) ||
+        std::abs(packet->x) >= Level::MAX_LEVEL_SIZE || std::abs(packet->z) >= Level::MAX_LEVEL_SIZE ||
+        std::abs(packet->y) >= Level::MAX_LEVEL_SIZE) return;
+	// Server collision/pickup queries need the current accepted position. Lerp
+	// is for remote rendering: its tick can stop when the old chunk unloads,
+	// leaving the server player permanently behind the client's moving window.
+	player->xd = player->yd = player->zd = 0;
+	player->moveTo(packet->x, packet->y, packet->z, packet->yRot, packet->xRot);
+	level->getChunk(Mth::floor(player->x / 16.f), Mth::floor(player->z / 16.f));
+	level->tick(player, false); // Update spatial membership without simulating another tick.
+	redistributePacket(packet, source);
 }
 
 void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, RemoveBlockPacket* packet){
 	if (!level) return;
+    if(auto* player=dynamic_cast<ServerPlayer*>(getPlayer(source)))if(player->inventoryV1)return;
 
 	Player* player = getPlayer(source);
 	if (!player) return;
@@ -501,6 +513,7 @@ void ServerSideNetworkHandler::levelGenerated( Level* level )
 void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, PlayerEquipmentPacket* packet)
 {
 	if (!level) return;
+    if(auto* player=dynamic_cast<ServerPlayer*>(getPlayer(source)))if(player->inventoryV1)return;
 
 	Player* player = getPlayer(source);
 	if (!player) return;
@@ -519,6 +532,7 @@ void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, PlayerEq
 
 void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, PlayerArmorEquipmentPacket* packet) {
     if (!level) return;
+    if(auto* player=dynamic_cast<ServerPlayer*>(getPlayer(source)))if(player->inventoryV1)return;
 
     Player* player = getPlayer(source);
     if (!player) return;
@@ -536,9 +550,11 @@ void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, Interact
 	if (src && entity && src->isPlayer())
 	{
 		Player* player = (Player*) src;
+		if (player->owner != source || !player->isAlive() || entity == player || !entity->isAlive()) return;
 		if (InteractPacket::Attack == packet->action) {
 			player->swing();
 			minecraft->gameMode->attack(player, entity);
+			if (ServerPlayer* remote = dynamic_cast<ServerPlayer*>(player)) remote->sendInventory();
 		}
 		if (InteractPacket::Interact == packet->action) {
 			player->swing();
@@ -579,11 +595,13 @@ void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, AnimateP
 void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, UseItemPacket* packet)
 {
 	if (!level) return;
+    if(auto* player=dynamic_cast<ServerPlayer*>(getPlayer(source)))if(player->inventoryV1)return;
 
 	LOGI("UseItemPacket\n");
 	Entity* entity = level->getEntity(packet->entityId);
 	if (entity && entity->isPlayer()) {
 		Player* player = (Player*) entity;
+        if(player->owner!=source)return;
 		int x = packet->x, y = packet->y, z = packet->z;
 		Tile* t = Tile::tiles[level->getTile(x, y, z)];
 
@@ -611,10 +629,12 @@ void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, UseItemP
 }
 
 void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, EntityEventPacket* packet) {
-	if (!level) return;
-
-	if (Entity* e = level->getEntity(packet->entityId))
-		e->handleEntityEvent(packet->eventId);
+    if(!level)return;
+    Player* player=getPlayer(source);
+    if(!player||player->entityId!=packet->entityId)return;
+    // V1 food completion is driven by the server's use duration.
+    if(auto* remote=dynamic_cast<ServerPlayer*>(player))if(remote->inventoryV1)return;
+    player->handleEntityEvent(packet->eventId);
 }
 
 void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, PlayerActionPacket* packet)
@@ -624,7 +644,9 @@ void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, PlayerAc
 	Entity* entity = level->getEntity(packet->entityId);
 	if (entity && entity->isPlayer()) {
 		Player* player = (Player*) entity;
+        if(player->owner!=source)return;
 		if(packet->action == PlayerActionPacket::RELEASE_USE_ITEM) {
+            if(auto* remote=dynamic_cast<ServerPlayer*>(player))if(remote->inventoryV1){remote->releaseNativeUsingItem();return;}
 			minecraft->gameMode->releaseUsingItem(player);
 			return;
 		}
@@ -638,8 +660,29 @@ void ServerSideNetworkHandler::handle( const RakNet::RakNetGUID& source, Respawn
 {
 	if (!level) return;
 
+    Player* player=getPlayer(source);
+    if(!player||player->entityId!=packet->entityId||!std::isfinite(packet->x)||!std::isfinite(packet->y)||!std::isfinite(packet->z))return;
+    if(auto* remote=dynamic_cast<ServerPlayer*>(player))if(remote->inventoryV1&&remote->isAlive())return;
 	NetEventCallback::handle(level, source, packet );
+    if(auto* remote=dynamic_cast<ServerPlayer*>(player))if(remote->inventoryV1)remote->sendInventory();
 	redistributePacket(packet, source);
+}
+
+namespace {
+bool validNativeStack(const ItemInstance& item) {
+    if (item.id == 0) return item.count == 0 && item.getAuxValue() == 0;
+    if (!item.getItem() || item.count < 0 || item.count > item.getMaxStackSize()) return false;
+    // Zero-count backing slots can occur while a carried item is exhausted.
+    return item.getAuxValue() >= 0;
+}
+bool validNativeHotbar(const NativeHotbarState& hotbar, const Inventory* inventory) {
+    if (!hotbar.present) return true;
+    if (hotbar.selected >= Inventory::MAX_SELECTION_SIZE) return false;
+    for (int i = 0; i < Inventory::MAX_SELECTION_SIZE; ++i)
+        if (hotbar.slots[i] != -1 && (hotbar.slots[i] < Inventory::MAX_SELECTION_SIZE ||
+            hotbar.slots[i] >= inventory->getContainerSize())) return false;
+    return true;
+}
 }
 
 void ServerSideNetworkHandler::handle( const RakNet::RakNetGUID& source, SendInventoryPacket* packet )
@@ -649,8 +692,42 @@ void ServerSideNetworkHandler::handle( const RakNet::RakNetGUID& source, SendInv
 	Entity* entity = level->getEntity(packet->entityId);
 	if (entity && entity->isPlayer() && ((Player*)entity)->owner == source) {
 		Player* p = (Player*)entity;
+        if(ServerPlayer* remote=dynamic_cast<ServerPlayer*>(p)) {
+            if(packet->action.present) {
+                const NativeInventoryAction& action=packet->action;
+                if(!packet->valid||!remote->inventoryTransactionsSupported)return;
+                if(action.nonce!=remote->inventoryNonce){int previous=remote->inventoryStatus;remote->inventoryStatus=NativeInventoryAction::WrongSession;remote->sendInventory();remote->inventoryStatus=previous;return;}
+                if(action.sequence<=remote->inventoryAcknowledged){remote->sendInventory();return;}
+                if(action.sequence!=remote->inventoryAcknowledged+1){int previous=remote->inventoryStatus;remote->inventoryStatus=NativeInventoryAction::SequenceGap;remote->sendInventory();remote->inventoryStatus=previous;return;}
+                remote->inventoryV1=true;
+                remote->inventoryStatus=NativeInventoryTransactions::apply(minecraft,remote,action,packet->hotbar,&packet->items);
+                remote->inventoryAcknowledged=action.sequence;
+                remote->sendInventory();return;
+            }
+            if(remote->inventoryV1){remote->sendInventory();return;}
+        }
+        const int expected = p->inventory->getContainerSize() - Inventory::MAX_SELECTION_SIZE;
+        if (!packet->valid || packet->numItems != expected ||
+            packet->items.size() != (size_t)(expected + SendInventoryPacket::NumArmorItems) ||
+            (packet->extra & ~SendInventoryPacket::ExtraDrop) != 0 ||
+            !validNativeHotbar(packet->hotbar, p->inventory)) return;
+        for (const ItemInstance& item : packet->items) if (!validNativeStack(item)) return;
+        for (int i = 0; i < SendInventoryPacket::NumArmorItems; ++i) {
+            const ItemInstance& item = packet->items[expected + i];
+            if (item.count > 0 && (!item.getItem()->isArmor() ||
+                static_cast<ArmorItem*>(item.getItem())->slot != i)) return;
+        }
+        NativeHotbarState previousHotbar;
+        previousHotbar.capture(p->inventory);
 		p->inventory->replace(packet->items, packet->numItems);
-        packet->hotbar.apply(p->inventory);
+        if (packet->hotbar.present) packet->hotbar.apply(p->inventory);
+        else {
+            previousHotbar.apply(p->inventory);
+            for (int slot = Inventory::MAX_SELECTION_SIZE; slot < p->inventory->getContainerSize(); ++slot) {
+                ItemInstance* item = p->inventory->getItem(slot);
+                if (item && item->count > 0) p->inventory->linkEmptySlot(slot);
+            }
+        }
         for (int i=0;i<SendInventoryPacket::NumArmorItems;++i)
             if ((int)packet->items.size()>packet->numItems+i) p->setArmor(i,&packet->items[packet->numItems+i]);
 		bool keepInventory = level->getLevelData() && level->getLevelData()->getKeepInventory();
@@ -664,6 +741,7 @@ void ServerSideNetworkHandler::handle( const RakNet::RakNetGUID& source, SendInv
 void ServerSideNetworkHandler::handle( const RakNet::RakNetGUID& source, DropItemPacket* packet )
 {
 	if (!level) return;
+    if(auto* player=dynamic_cast<ServerPlayer*>(getPlayer(source)))if(player->inventoryV1)return;
 
 	Entity* entity = level->getEntity(packet->entityId);
 	if (entity && entity->isPlayer() && ((Player*)entity)->owner == source) {
@@ -698,6 +776,7 @@ void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, Containe
 
 void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, ContainerSetSlotPacket* packet) {
 	if (!level) return;
+    if(auto* player=dynamic_cast<ServerPlayer*>(getPlayer(source)))if(player->inventoryV1)return;
 
 	Player* p = findPlayer(level, &source);
 	if (!p) return;
@@ -712,6 +791,11 @@ void ServerSideNetworkHandler::handle(const RakNet::RakNetGUID& source, Containe
 		return;
 	}
 	
+    if (!packet->valid || !validNativeStack(packet->item) || packet->slot < 0) return;
+    // FurnaceTileEntity::setItem indexes its fixed array directly.
+    const size_t slotCount = p->containerMenu->getItems().size();
+    if ((size_t)packet->slot >= slotCount) return;
+
 	if (ContainerType::FURNACE == p->containerMenu->containerType) {
 		//LOGI("Server:Setting slot %d: %s\n", packet->slot, packet->item.toString().c_str());
 		p->containerMenu->setSlot(packet->slot, &packet->item);

@@ -30,6 +30,7 @@
 #endif
 
 #include "../network/RakNetInstance.h"
+#include "../world/level/chunk/ChunkCollectionGate.h"
 #include "../network/ClientSideNetworkHandler.h"
 #include "../network/ServerSideNetworkHandler.h"
 //#include "../network/Packet.h"
@@ -218,6 +219,8 @@ Minecraft::Minecraft()
 	ticks(0),
 	isGeneratingLevel(false),
 	_hasSignaledGeneratingLevelFinished(true),
+    _nativeLeavePending(false),
+    _nativeLeaveRename(false),
 	generateLevelThread(NULL),
 	progressStagePercentage(0),
 	progressStageStatusId(0),
@@ -369,8 +372,23 @@ void Minecraft::setLevel(Level* level, const std::string& message /* ="" */, Loc
 void Minecraft::leaveGame(bool renameLevel /*=false*/)
 {
     stopJavaServer();
-    if (level && (isGeneratingLevel || !_hasSignaledGeneratingLevelFinished))
-        return;
+    if (level && (isGeneratingLevel || !_hasSignaledGeneratingLevelFinished)) {
+        if (!level->isClientSide || level->isJavaServerLevel()) return;
+        // The detached worker still owns the remote snapshot. Remember OK and
+        // clean up after its atomic completion, without finalizing a cancelled
+        // world or requiring the user to press the button a second time.
+        if (isGeneratingLevel) {
+            _nativeLeavePending = true;
+            _nativeLeaveRename = renameLevel;
+            return;
+        }
+    }
+    _nativeLeavePending = false;
+    if (generateLevelThread) {
+        delete generateLevelThread;
+        generateLevelThread = NULL;
+    }
+    _hasSignaledGeneratingLevelFinished = true;
 
 	isGeneratingLevel = false;
 	bool saveLevel = level && (!level->isClientSide || renameLevel);
@@ -388,8 +406,8 @@ void Minecraft::leaveGame(bool renameLevel /*=false*/)
 
 	cameraTargetPlayer = NULL;
 #ifndef STANDALONE_SERVER
-	levelRenderer->setLevel(NULL);
-	particleEngine->setLevel(NULL);
+	if (levelRenderer) levelRenderer->setLevel(NULL);
+	if (particleEngine) particleEngine->setLevel(NULL);
 #endif
 	LOGI("Erasing callback\n");
 	delete netCallback;
@@ -569,10 +587,23 @@ void Minecraft::update() {
 		PerfTimer::enabled = false;
 	}
 #endif
+    // No renderer/pathfinder/packet stack retains chunk views here. The
+    // generation worker must be joined, not merely report its atomic flag.
+    if(level&&NativeChunkLifetime::mayCollectAtFrameEnd(isGeneratingLevel,generateLevelThread!=NULL,_hasSignaledGeneratingLevelFinished)) {
+#ifndef STANDALONE_SERVER
+        if(auto* client=dynamic_cast<ClientSideNetworkHandler*>(netCallback))client->pruneChunkReceipts();
+#endif
+        level->collectRetiredChunks();
+    }
 	//LOGI("Exit Update\n");
 }
 
 void Minecraft::tick(int nTick, int maxTick) {
+    if (_nativeLeavePending && !isGeneratingLevel) {
+        const bool renameLevel = _nativeLeaveRename;
+        leaveGame(renameLevel);
+        return;
+    }
 #ifndef STANDALONE_SERVER
     updateJavaServer();
 #endif
@@ -913,7 +944,7 @@ void Minecraft::tickInput() {
 				if (key == Keyboard::KEY_O) {
 					for (int i = Inventory::MAX_SELECTION_SIZE; i < player->inventory->getContainerSize(); ++i)
 						if (player->inventory->getItem(i))
-							player->inventory->dropSlot(i, false);
+							{ if(player->nativeTransactionsEnabled())player->nativeDropSlot(i);else player->inventory->dropSlot(i,false); }
 				}
 				if (key == Keyboard::KEY_F3) {
 					options.renderDebug = !options.renderDebug;
@@ -1033,6 +1064,7 @@ void Minecraft::tickInput() {
 
 void Minecraft::handleBuildAction(BuildActionIntention* action) {
 #ifndef STANDALONE_SERVER
+    if(player && player->nativeTransactionsEnabled())player->nativeFlushHotbar();
     // Java piercing weapons jab along the server's authoritative ray, including
     // empty air. They use STAB rather than a legacy single-entity attack packet.
     if(javaSession && javaSession->attackPiercing && action->isAttack()) {
@@ -1439,7 +1471,12 @@ bool Minecraft::joinMultiplayer( const PingedCompatibleServer& server )
 {
 	if (isLookingForMultiplayer && netCallback) {
 		isLookingForMultiplayer = false;
-		return raknetInstance->connect(server.address.ToString(false), server.address.GetPort());
+		ClientSideNetworkHandler* handler = dynamic_cast<ClientSideNetworkHandler*>(netCallback);
+        if (!handler) return false;
+        handler->beginJoin();
+        const bool started = raknetInstance->connect(server.address.ToString(false), server.address.GetPort());
+        if (!started) handler->cancelJoin();
+        return started;
 	}
 	return false;
 }
@@ -1611,7 +1648,9 @@ const char* Minecraft::getProgressMessage()
 
 bool Minecraft::isLevelGenerated()
 {
-	return level != NULL && !isGeneratingLevel && (!level->isJavaServerLevel() || _hasSignaledGeneratingLevelFinished);
+	// A generation worker may finish between ticks. Rendering must wait until
+	// _levelGenerated has attached the renderer and camera on the main thread.
+	return level != NULL && !isGeneratingLevel && _hasSignaledGeneratingLevelFinished;
 }
 
 LevelStorageSource* Minecraft::getLevelSource()

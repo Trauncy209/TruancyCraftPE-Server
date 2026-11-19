@@ -4,6 +4,8 @@ Native survival multiplayer for **[TruancyCraftPE](https://github.com/Trauncy209
 
 **v0.5.25.4 · Native Player Saves** · [Download the server](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/download/v0.5.25.4/TruancyCraftPE-Server-0.5.25.4-Linux-x86_64.tar.gz)
 
+**Test the next update:** [v0.5.25.5 · Stability Update (prerelease)](https://github.com/Trauncy209/TruancyCraftPE-Server/releases/tag/v0.5.25.5) fixes distant players freezing, mob hits and pickups after travel, inventory synchronization, and world-save recovery. Update the client and server together. The stable download above stays on 0.5.25.4 until testing is finished.
+
 This is our headless native server alpha. It runs TCPE worlds directly, without a game window, graphics card, Java server or Java protocol translation. The server is C++ with the original native TCPE/RakNet protocol. It is not a Rust rewrite.
 
 v0.5.25 adds server-owned **rain, snow and thunderstorms**, lightning and weather effects on the world. Weather saves with the world and syncs with matching clients when they join or reconnect. Same native survival, with proper weather.
@@ -36,6 +38,8 @@ cmake --build build -j1
 Default port is **25565** for both UDP gameplay and TCP server-list status. Open both protocols. Put a **64×64 PNG** named `server-icon.png` in the working directory for your listing. `--name` supplies the advertised description/MOTD; players can save a separate server label in their list.
 
 Worlds save in `world/` by default. Matching 0.5.25.4 clients and servers also save each player’s inventory, hotbar and position across reconnects and restarts. Existing worlds keep their saved seed and game mode: `--survival` selects Survival for a **new** world. Use `--directory`, `--world`, `--port`, `--max-players` and `--autosave` to configure it. Run `--help` for all options. Console commands: `save`, `list`, `stop`, `help`, `/op username`, `/deop username`. Use `--console /path/to/console.in` for an owner-only FIFO console with a background service. SIGTERM saves cleanly.
+
+Docker hosting is available too: [container setup](deploy/README.md), with saved worlds kept outside the container and automatic restart after reboots.
 
 ## Server-owned settings
 
